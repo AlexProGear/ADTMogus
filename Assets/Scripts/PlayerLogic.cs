@@ -407,13 +407,13 @@ public class PlayerLogic : NetworkedBehaviour
             // Controls on the land
             if (Grounded)
             {
-                bool run = shiftPressed && Time.time - shiftPressTime > runHoldTime;
+                bool run = shiftPressed && !useMelee.Value && Time.time - shiftPressTime > runHoldTime;
                 if (run && Time.time - lastRunSoundTime > runSoundCooldown)
                 {
                     lastRunSoundTime = Time.time;
                     SFXManager.Singleton.InvokeServerRpc(SFXManager.Singleton.PlaySoundEffectOnMe, SFXManager.SoundEffectType.Run);
                 }
-                float speed = run && !useMelee.Value ? runningSpeed : movementSpeed;
+                float speed = run ? runningSpeed : movementSpeed;
                 Vector3 moveVector = dirVector * (speed * speedModifier * Time.deltaTime);
                 moveVector = Vector3.Lerp(rb.GetHorizontalVelocity(), moveVector, 0.3f);
                 rb.velocity = new Vector3(moveVector.x, rb.velocity.y, moveVector.z);
