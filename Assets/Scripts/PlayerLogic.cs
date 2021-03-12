@@ -353,8 +353,8 @@ public class PlayerLogic : NetworkedBehaviour
     {
         if (IsOwner)
         {
-            LockUnlockCursorInput();
             MyUpdate();
+            LockUnlockCursorInput();
         }
     }
 
