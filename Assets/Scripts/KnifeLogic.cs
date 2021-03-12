@@ -54,7 +54,10 @@ public class KnifeLogic : NetworkedBehaviour
         {
             if (player != owner)
             {
-                player.InvokeServerRpc(player.KnifeCollisionServer, this);
+                if (flying || owner.CanDealDamage)
+                {
+                    player.InvokeServerRpc(player.KnifeCollisionServer, this);
+                }
                 if (!permanent)
                 {
                     Destroy(gameObject);
@@ -64,10 +67,22 @@ public class KnifeLogic : NetworkedBehaviour
         else if (!permanent)
         {
             KnifeLogic otherKnife = other.GetComponentInParent<KnifeLogic>();
-            if (otherKnife == null)
+            if (otherKnife == null || otherKnife.owner != owner)
             {
                 Destroy(gameObject);
             }
+        }
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        if (!IsOwner)
+            return;
+
+        PlayerLogic player = other.GetComponentInParent<PlayerLogic>();
+        if (player != null && player != owner && owner.CanDealDamage)
+        {
+            player.InvokeServerRpc(player.KnifeCollisionServer, this);
         }
     }
 }

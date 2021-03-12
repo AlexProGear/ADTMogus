@@ -57,6 +57,9 @@ public class PlayerLogic : NetworkedBehaviour
     private readonly NetworkedVarBool canThrowKnife = new NetworkedVarBool(NetVarPerm.Server2Everyone, true);
     private readonly NetworkedVarBool canDash = new NetworkedVarBool(NetVarPerm.Server2Everyone, true);
     
+    // Public fields
+    public bool CanDealDamage { get; private set; }
+    
     // Private fields
     private Rigidbody rb;
     private GameObject knife;
@@ -191,44 +194,45 @@ public class PlayerLogic : NetworkedBehaviour
 
     private IEnumerator MeleeAttack()
     {
-        ValueTuple<Vector3, Vector3, float, bool>[][] actions = new (Vector3, Vector3, float, bool)[3][];
+        // Position, rotation, time, play sound, deal damage
+        ValueTuple<Vector3, Vector3, float, bool, bool>[][] actions = new (Vector3, Vector3, float, bool, bool)[3][];
         // Stage 1
         actions[0] = new[]
         {
-            (new Vector3(0, 0, 0), new Vector3(0, 20, 0), 0, false),
-            (new Vector3(0.34f, 0, 0.94f), new Vector3(0, 20, 0), 0.3f, false),
-            (new Vector3(0.7f, 0, 0.7f), new Vector3(0, 45, 0), 0.02f, true),
-            (new Vector3(0.94f, 0, 0.34f), new Vector3(0, 70, 0), 0.02f, false),
-            (new Vector3(1f, 0, 0f), new Vector3(0, 90, 0), 0.02f, true),
-            (new Vector3(0.94f, 0, -0.34f), new Vector3(0, 110, 0), 0.02f, false),
-            (new Vector3(0.7f, 0, -0.7f), new Vector3(0, 135, 0), 0.02f, true),
-            (new Vector3(0, 0, 0), new Vector3(0, 135, 0), 0.2f, false),
+            (new Vector3(0, 0, 0), new Vector3(0, 20, 0), 0, false, false),
+            (new Vector3(0.34f, 0, 0.94f), new Vector3(0, 20, 0), 0.3f, false, false),
+            (new Vector3(0.7f, 0, 0.7f), new Vector3(0, 45, 0), 0.02f, true, true),
+            (new Vector3(0.94f, 0, 0.34f), new Vector3(0, 70, 0), 0.02f, false, true),
+            (new Vector3(1f, 0, 0f), new Vector3(0, 90, 0), 0.02f, true, true),
+            (new Vector3(0.94f, 0, -0.34f), new Vector3(0, 110, 0), 0.02f, false, true),
+            (new Vector3(0.7f, 0, -0.7f), new Vector3(0, 135, 0), 0.02f, true, true),
+            (new Vector3(0, 0, 0), new Vector3(0, 135, 0), 0.2f, false, false),
         };
         // Stage 2
         actions[1] = new[]
         {
-            (new Vector3(0, 0, 0), new Vector3(0, 135, 0), 0.2f, false),
-            (new Vector3(0.7f, 0, -0.7f), new Vector3(0, 135, 0), 0.1f, true),
-            (new Vector3(0.94f, 0, -0.34f), new Vector3(0, 110, 0), 0.02f, false),
-            (new Vector3(1f, 0, 0f), new Vector3(0, 90, 0), 0.02f, false),
-            (new Vector3(0.94f, 0, 0.34f), new Vector3(0, 70, 0), 0.02f, true),
-            (new Vector3(0.7f, 0, 0.7f), new Vector3(0, 45, 0), 0.02f, false),
-            (new Vector3(0.34f, 0, 0.94f), new Vector3(0, 20, 0), 0.02f, false),
-            (new Vector3(0, 0, 1), new Vector3(0, 20, 0), 0.02f, true),
-            (new Vector3(-0.34f, 0, 0.94f), new Vector3(0, -20, 0), 0.02f, false),
-            (new Vector3(-0.7f, 0, 0.7f), new Vector3(0, -45, 0), 0.02f, false),
-            (new Vector3(-0.94f, 0, 0.34f), new Vector3(0, -70, 0), 0.02f, false),
-            (new Vector3(0, 0, 0), new Vector3(0, -70, 0), 0.2f, false),
+            (new Vector3(0, 0, 0), new Vector3(0, 135, 0), 0.2f, false, false),
+            (new Vector3(0.7f, 0, -0.7f), new Vector3(0, 135, 0), 0.1f, true, false),
+            (new Vector3(0.94f, 0, -0.34f), new Vector3(0, 110, 0), 0.02f, false, true),
+            (new Vector3(1f, 0, 0f), new Vector3(0, 90, 0), 0.02f, false, true),
+            (new Vector3(0.94f, 0, 0.34f), new Vector3(0, 70, 0), 0.02f, true, true),
+            (new Vector3(0.7f, 0, 0.7f), new Vector3(0, 45, 0), 0.02f, false, true),
+            (new Vector3(0.34f, 0, 0.94f), new Vector3(0, 20, 0), 0.02f, false, true),
+            (new Vector3(0, 0, 1), new Vector3(0, 20, 0), 0.02f, true, true),
+            (new Vector3(-0.34f, 0, 0.94f), new Vector3(0, -20, 0), 0.02f, false, true),
+            (new Vector3(-0.7f, 0, 0.7f), new Vector3(0, -45, 0), 0.02f, false, true),
+            (new Vector3(-0.94f, 0, 0.34f), new Vector3(0, -70, 0), 0.02f, false, true),
+            (new Vector3(0, 0, 0), new Vector3(0, -70, 0), 0.2f, false, false),
         };
         // Stage 3
         actions[2] = new[]
         {
-            (new Vector3(0, 0, 0), new Vector3(0, -70, 0), 0.2f, false),
-            (new Vector3(0, 0, 0), new Vector3(0, 0, 0), 0f, false),
-            (new Vector3(0, 0, 1), new Vector3(0, 0, 0), 0.1f, true),
-            (new Vector3(0, 0, 1), new Vector3(0, 0, 0), 0.0f, true),
-            (new Vector3(0, 0, 1), new Vector3(0, 0, 0), 0.0f, true),
-            (new Vector3(0, 0, 1), new Vector3(0, 0, 0), 0.5f, false),
+            (new Vector3(0, 0, 0), new Vector3(0, -70, 0), 0.2f, false, false),
+            (new Vector3(0, 0, 0), new Vector3(0, 0, 0), 0f, false, false),
+            (new Vector3(0, 0, 1), new Vector3(0, 0, 0), 0.1f, true, true),
+            (new Vector3(0, 0, 1), new Vector3(0, 0, 0), 0.0f, true, true),
+            (new Vector3(0, 0, 1), new Vector3(0, 0, 0), 0.0f, true, true),
+            (new Vector3(0, 0, 1), new Vector3(0, 0, 0), 0.5f, false, false),
         };
 
         Transform knifeTransform = knife.transform;
@@ -249,6 +253,8 @@ public class PlayerLogic : NetworkedBehaviour
                 knifeTransform.localPosition = Vector3.Lerp(startPos, targetPos, progress);
                 knifeTransform.localRotation = Quaternion.Euler(Vector3.Lerp(startRot, targetRot, progress));
             }
+
+            CanDealDamage = actions[stage][i].Item5;
 
             if (actions[stage][i].Item4)
             {
@@ -318,6 +324,7 @@ public class PlayerLogic : NetworkedBehaviour
             Vector3 oldPos = transform.position;
             transform.position = new Vector3(oldPos.x, oldPos.y - 0.5f, oldPos.z);
 
+            CanDealDamage = false;
             Moving = false;
             if (meleeCoroutine != null)
             {
@@ -400,7 +407,7 @@ public class PlayerLogic : NetworkedBehaviour
             // Controls on the land
             if (Grounded)
             {
-                bool run = shiftPressed && shiftPressTime > runHoldTime;
+                bool run = shiftPressed && Time.time - shiftPressTime > runHoldTime;
                 if (run && Time.time - lastRunSoundTime > runSoundCooldown)
                 {
                     lastRunSoundTime = Time.time;
