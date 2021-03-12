@@ -717,6 +717,10 @@ public class PlayerLogic : NetworkedBehaviour
                 dashRequested = false;
                 jumpRequested = false;
                 stunRemainingTime = 0;
+                if (meleeCoroutine != null)
+                {
+                    StopCoroutine(meleeCoroutine);
+                }
                 
                 StartCoroutine(BoolCooldownIcon(respawnDuration, "RespawnIcon", reverse: true));
 
