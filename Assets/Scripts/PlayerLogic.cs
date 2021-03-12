@@ -7,6 +7,7 @@ using MLAPI.NetworkedVar;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Zenject;
 using Random = UnityEngine.Random;
 
 
@@ -19,6 +20,8 @@ public class PlayerLogic : NetworkedBehaviour
     [SerializeField] private float maneuverSpeed = 100f;
     [SerializeField] private float maxManeuverSpeed = 10f;
     [SerializeField] private float jumpPower = 10f;
+    [SerializeField] private float runHoldTime = 0.4f;
+    [SerializeField] private float runSoundCooldown = 0.25f;
     
     [Header("Dash")]
     [SerializeField] private float dashCooldown = 3f;
@@ -29,7 +32,7 @@ public class PlayerLogic : NetworkedBehaviour
     
     [Header("Abilities")]
     [SerializeField] private float teleportDistance = 30f;
-    
+
     [Header("Debuffs")]
     [SerializeField] private Color stunColor = new Color(1, 0, 1, 0.75f);
     [SerializeField] private Color deathColor = new Color(1, 0, 0, 0.75f);
@@ -45,13 +48,6 @@ public class PlayerLogic : NetworkedBehaviour
     [SerializeField] private float knifeCooldown = 10f;
     [SerializeField] private int knifeCount = 3;
     [SerializeField] private float knifeBurstTime = 0.1f;
-    
-    [Header("Sounds")]
-    [SerializeField] private AudioSource[] deathSounds;
-    [SerializeField] private AudioSource[] dashSounds;
-    [SerializeField] private AudioSource[] teleportSounds;
-    [SerializeField] private AudioSource[] attackSounds;
-    [SerializeField] private AudioSource[] jumpSounds;
 
     // Networked variables
     private readonly NetworkedVarColor bodyColor = new NetworkedVarColor(NetVarPerm.Server2Everyone);
@@ -83,9 +79,11 @@ public class PlayerLogic : NetworkedBehaviour
     private Coroutine statusCoroutine;
 
     private bool shiftPressed = false;
+    private bool dashServerAllowed = true;
     private float shiftPressTime;
     private float lastAttackTime;
     private float stunRemainingTime = 0f;
+    private float lastRunSoundTime = 0f;
 
     private bool canJump = true;
 
@@ -145,6 +143,7 @@ public class PlayerLogic : NetworkedBehaviour
         useMelee.OnValueChanged += UseMeleeReaction;
         dead.OnValueChanged += DeadChanged;
         bodyColor.OnValueChanged += UpdateColor;
+        canDash.OnValueChanged += CanDashChanged;
         
         rb = GetComponent<Rigidbody>();
 
@@ -156,6 +155,14 @@ public class PlayerLogic : NetworkedBehaviour
             myCollider = GetComponent<Collider>();
             playerStatusImage = GameObject.FindWithTag("StatusPanel").GetComponent<Image>();
             spawnPoints = GameObject.FindGameObjectsWithTag("SpawnPoint").Select(g => g.transform).ToArray();
+        }
+    }
+
+    private void CanDashChanged(bool oldValue, bool newValue)
+    {
+        if (newValue)
+        {
+            dashServerAllowed = true;
         }
     }
 
@@ -245,7 +252,7 @@ public class PlayerLogic : NetworkedBehaviour
 
             if (actions[stage][i].Item4)
             {
-                InvokeServerRpc(PlayAttackSoundServer);
+                SFXManager.Singleton.InvokeServerRpc(SFXManager.Singleton.PlaySoundEffectOnMe, SFXManager.SoundEffectType.Attack);
             }
 
             yield return CommonFunctions.CooldownCoroutine(duration, onProgress: MoveKnife);
@@ -278,18 +285,6 @@ public class PlayerLogic : NetworkedBehaviour
         useMelee.Value = false;
     }
 
-    [ServerRPC]
-    private void PlayAttackSoundServer()
-    {
-        InvokeClientRpcOnEveryone(PlayAttackSoundClient);
-    }
-
-    [ClientRPC]
-    private void PlayAttackSoundClient()
-    {
-        attackSounds[Random.Range(0, attackSounds.Length)].Play();
-    }
-
 
     [ServerRPC]
     private void AttackInvulnerability()
@@ -312,8 +307,12 @@ public class PlayerLogic : NetworkedBehaviour
                     WindowScoreboard.Instance.AddKill(lastKnifeStabber);
                     lastKnifeStabber = UInt64.MaxValue;
                 }
+            }
+
+            if (IsOwner)
+            {
                 bool rare = Random.Range(1, 100) >= 90;
-                InvokeClientRpcOnEveryone(PlayDeathSound, rare);
+                SFXManager.Singleton.InvokeServerRpc(SFXManager.Singleton.PlaySoundEffectOnMe, SFXManager.SoundEffectType.Death, rare ? 1 : 0);
             }
             
             Vector3 oldPos = transform.position;
@@ -336,12 +335,6 @@ public class PlayerLogic : NetworkedBehaviour
         }
         // Death "animation"
         transform.rotation = isDead ? Quaternion.Euler(new Vector3(-90, 0, 0)) : Quaternion.Euler(Vector3.zero);
-    }
-
-    [ClientRPC]
-    private void PlayDeathSound(bool rare)
-    {
-        deathSounds[rare ? 1 : 0].Play();
     }
 
     private void UpdateColor(Color oldColor, Color newColor)
@@ -407,7 +400,13 @@ public class PlayerLogic : NetworkedBehaviour
             // Controls on the land
             if (Grounded)
             {
-                float speed = shiftPressed && !useMelee.Value ? runningSpeed : movementSpeed;
+                bool run = shiftPressed && shiftPressTime > runHoldTime;
+                if (run && Time.time - lastRunSoundTime > runSoundCooldown)
+                {
+                    lastRunSoundTime = Time.time;
+                    SFXManager.Singleton.InvokeServerRpc(SFXManager.Singleton.PlaySoundEffectOnMe, SFXManager.SoundEffectType.Run);
+                }
+                float speed = run && !useMelee.Value ? runningSpeed : movementSpeed;
                 Vector3 moveVector = dirVector * (speed * speedModifier * Time.deltaTime);
                 moveVector = Vector3.Lerp(rb.GetHorizontalVelocity(), moveVector, 0.3f);
                 rb.velocity = new Vector3(moveVector.x, rb.velocity.y, moveVector.z);
@@ -435,7 +434,7 @@ public class PlayerLogic : NetworkedBehaviour
             Vector3 dirVector = (transform.forward * vAxis + transform.right * hAxis);
             rb.AddForce((dirVector * 0.2f + Vector3.up).normalized * jumpPower, ForceMode.VelocityChange);
             StartCoroutine(CommonFunctions.CooldownCoroutine(0.5f, x => canJump = x));
-            InvokeServerRpc(JumpNotificationServer);
+            SFXManager.Singleton.InvokeServerRpc(SFXManager.Singleton.PlaySoundEffectOnMe, SFXManager.SoundEffectType.Jump);
         }
 
         // Dash
@@ -470,10 +469,11 @@ public class PlayerLogic : NetworkedBehaviour
         if (Input.GetKeyUp(KeyCode.LeftShift))
         {
             shiftPressed = false;
-            if (Moving && !CommonFunctions.CursorVisible && Time.time - shiftPressTime < 0.4f
-                && !useMelee.Value && !stunned && Grounded && canDash.Value && !dead.Value)
+            if (Moving && !CommonFunctions.CursorVisible && Time.time - shiftPressTime < runHoldTime
+                && !useMelee.Value && !stunned && Grounded && canDash.Value && !dead.Value && dashServerAllowed)
             {
                 dashRequested = true;
+                dashServerAllowed = false;
             }
         }
 
@@ -590,22 +590,6 @@ public class PlayerLogic : NetworkedBehaviour
     }
     #endregion
 
-    #region Jump logic
-
-    [ServerRPC]
-    private void JumpNotificationServer()
-    {
-        InvokeClientRpcOnEveryone(JumpNotificationClient);
-    }
-    
-    [ClientRPC]
-    private void JumpNotificationClient()
-    {
-        jumpSounds[Random.Range(0, jumpSounds.Length)].Play();
-    }
-
-    #endregion
-    
     #region Dash logic
     private void DashClient(bool attack = false)
     {
@@ -653,6 +637,7 @@ public class PlayerLogic : NetworkedBehaviour
             StartCoroutine(BoolCooldownIcon(dashCooldown, "DashIcon"));
         }
         InvokeServerRpc(DashServer, attack);
+        SFXManager.Singleton.InvokeServerRpc(SFXManager.Singleton.PlaySoundEffectOnMe, SFXManager.SoundEffectType.Dash);
     }
 
     [ServerRPC]
@@ -663,13 +648,6 @@ public class PlayerLogic : NetworkedBehaviour
             StartCoroutine(CommonFunctions.CooldownCoroutine(dashCooldown, x => canDash.Value = x));
         }
         StartCoroutine(CommonFunctions.CooldownCoroutine(dashInvulnerableTime, x => invulnerable.Value = x, true));
-        InvokeClientRpcOnEveryone(PlayerDashNotification);
-    }
-
-    [ClientRPC]
-    private void PlayerDashNotification()
-    {
-        dashSounds[Random.Range(0, dashSounds.Length)].Play();
     }
     #endregion
 
@@ -741,6 +719,7 @@ public class PlayerLogic : NetworkedBehaviour
             else
             {
                 // Stun
+                SFXManager.Singleton.InvokeServerRpc(SFXManager.Singleton.PlaySoundEffectOnMe, SFXManager.SoundEffectType.Stun);
                 Moving = false;
                 if (meleeCoroutine != null)
                 {

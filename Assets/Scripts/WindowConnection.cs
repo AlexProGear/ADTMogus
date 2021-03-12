@@ -43,6 +43,7 @@ public class WindowConnection : MonoBehaviour
     {
         SpawnChat();
         SpawnScoreboard();
+        SpawnSFXManager();
         CameraLogic.Active = true;
         gameObject.SetActive(false);
     }
@@ -77,5 +78,12 @@ public class WindowConnection : MonoBehaviour
         GameObject scoreboardPrefab = Resources.Load<GameObject>("Prefabs/WindowScoreboard");
         GameObject scoreboardInstance = Instantiate(scoreboardPrefab);
         scoreboardInstance.GetComponent<NetworkedObject>().Spawn();
+    }
+
+    private void SpawnSFXManager()
+    {
+        GameObject sfxManagerPrefab = Resources.Load<GameObject>("Prefabs/SFXManager");
+        GameObject sfxManagerInstance = Instantiate(sfxManagerPrefab);
+        sfxManagerInstance.GetComponent<NetworkedObject>().Spawn();
     }
 }

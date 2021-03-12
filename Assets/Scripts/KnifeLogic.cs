@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using MLAPI;
 using UnityEngine;
+using Zenject;
 
 public class KnifeLogic : NetworkedBehaviour
 {
@@ -24,19 +25,16 @@ public class KnifeLogic : NetworkedBehaviour
             if (IsServer)
             {
                 rb = GetComponent<Rigidbody>();
-                StartCoroutine(ItsRainingKnifes());
+                StartCoroutine(ItsRainingKnives());
             }
 
             GameObject followingAudioSource = Instantiate(audioSourcePrefab);
             FollowingAudioSource audioSource = followingAudioSource.GetComponent<FollowingAudioSource>();
-            audioSource.target = transform;
-            audioSource.src.clip = audioClip;
-            audioSource.src.Play();
-            audioSource.start = true;
+            audioSource.Begin(transform, audioClip);
         }
     }
 
-    private IEnumerator ItsRainingKnifes()
+    private IEnumerator ItsRainingKnives()
     {
         float lifeTime = 0;
         while (lifeTime < 60)

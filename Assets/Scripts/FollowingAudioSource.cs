@@ -1,25 +1,32 @@
 ﻿using System;
+using System.Collections;
 using UnityEngine;
 
 public class FollowingAudioSource : MonoBehaviour
 {
-    public Transform target;
+    private Transform target;
     public AudioSource src;
-    public bool start;
 
-    private void Update()
+    public void Begin(Transform target, AudioClip clip)
     {
-        if (!start)
-            return;
+        this.target = target;
+        src.clip = clip;
+        StartCoroutine(FollowerCoroutine());
+    }
 
-        if (target != null)
-        {
-            transform.position = target.position;
-        }
+    private IEnumerator FollowerCoroutine()
+    {
+        src.Play();
         
-        if (!src.isPlaying)
+        while (src.isPlaying)
         {
-            Destroy(gameObject);
+            if (target != null)
+            {
+                transform.position = target.position;
+            }
+            yield return null;
         }
+
+        Destroy(gameObject);
     }
 }
